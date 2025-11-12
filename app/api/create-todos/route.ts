@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create each todo list and its todos
+    // Create each todo list, its groups, and todos
     const results = [];
     for (const list of todoLists) {
       // Create the todo list
@@ -41,26 +41,64 @@ export async function POST(request: NextRequest) {
         list.description
       );
 
-      // Create each todo in the list
-      const createdTodos = [];
+      const createdGroups = [];
+
+      // Create groups and their todos
+      if (list.groups && list.groups.length > 0) {
+        for (const group of list.groups) {
+          // Create the group
+          const createdGroup = await client.createTodoGroup(
+            projectId,
+            createdList.id,
+            group.name
+          );
+
+          // Create todos within the group
+          const groupTodos = [];
+          for (const todo of group.todos) {
+            const createdTodo = await client.createTodo(
+              projectId,
+              createdList.id,
+              todo.content,
+              createdGroup.id
+            );
+            groupTodos.push(createdTodo);
+          }
+
+          createdGroups.push({
+            group: createdGroup,
+            todos: groupTodos,
+          });
+        }
+      }
+
+      // Create todos directly in the list (outside of groups)
+      const listTodos = [];
       for (const todo of list.todos) {
         const createdTodo = await client.createTodo(
           projectId,
           createdList.id,
           todo.content
         );
-        createdTodos.push(createdTodo);
+        listTodos.push(createdTodo);
       }
 
       results.push({
         list: createdList,
-        todos: createdTodos,
+        groups: createdGroups,
+        todos: listTodos,
       });
     }
 
+    const totalTodos = results.reduce((sum, r) => {
+      const groupTodos = r.groups?.reduce((gSum, g) => gSum + g.todos.length, 0) || 0;
+      return sum + r.todos.length + groupTodos;
+    }, 0);
+    const totalGroups = results.reduce((sum, r) => sum + (r.groups?.length || 0), 0);
+
     return NextResponse.json({
       success: true,
-      message: `Created ${results.length} todo lists with ${results.reduce((sum, r) => sum + r.todos.length, 0)} todos`,
+      message: `Created ${results.length} todo lists with ${totalGroups} groups and ${totalTodos} todos`,
       results,
     });
   } catch (error) {

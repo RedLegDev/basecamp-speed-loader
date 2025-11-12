@@ -21,6 +21,11 @@ export interface TodoList {
   description?: string;
 }
 
+export interface TodoGroup {
+  id: number;
+  name: string;
+}
+
 export interface Todo {
   id: number;
   content: string;
@@ -95,16 +100,36 @@ export class BasecampClient {
     );
   }
 
+  async createTodoGroup(
+    bucketId: number,
+    todolistId: number,
+    name: string
+  ): Promise<TodoGroup> {
+    return this.request<TodoGroup>(
+      `/buckets/${bucketId}/todolists/${todolistId}/groups.json`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      }
+    );
+  }
+
   async createTodo(
     bucketId: number,
     todolistId: number,
-    content: string
+    content: string,
+    groupId?: number
   ): Promise<Todo> {
+    const body: { content: string; group_id?: number } = { content };
+    if (groupId) {
+      body.group_id = groupId;
+    }
+
     return this.request<Todo>(
       `/buckets/${bucketId}/todolists/${todolistId}/todos.json`,
       {
         method: 'POST',
-        body: JSON.stringify({ content }),
+        body: JSON.stringify(body),
       }
     );
   }

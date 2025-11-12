@@ -2,21 +2,29 @@ export interface TodoItem {
   content: string;
 }
 
+export interface TodoGroup {
+  name: string;
+  todos: TodoItem[];
+}
+
 export interface TodoList {
   name: string;
   description?: string;
+  groups?: TodoGroup[];
   todos: TodoItem[];
 }
 
 /**
- * Parses markdown into todo lists and todos
- * Headers (# or ##) become todo list names
- * List items (- or *) become todos under the most recent header
+ * Parses markdown into todo lists, groups, and todos
+ * # headers become todo lists
+ * ## headers become todo groups (within the current list)
+ * List items (- or *) become todos (in the current group or list)
  */
 export function parseMarkdownToTodos(markdown: string): TodoList[] {
   const lines = markdown.split('\n');
   const todoLists: TodoList[] = [];
   let currentList: TodoList | null = null;
+  let currentGroup: TodoGroup | null = null;
 
   for (const line of lines) {
     const trimmedLine = line.trim();
@@ -26,19 +34,50 @@ export function parseMarkdownToTodos(markdown: string): TodoList[] {
       continue;
     }
 
-    // Check for headers (# Header or ## Header)
-    const headerMatch = trimmedLine.match(/^#{1,6}\s+(.+)$/);
-    if (headerMatch) {
+    // Check for level 1 header (# Header) - creates a new todo list
+    const h1Match = trimmedLine.match(/^#\s+(.+)$/);
+    if (h1Match) {
       // Save previous list if it exists
-      if (currentList && currentList.todos.length > 0) {
-        todoLists.push(currentList);
+      if (currentList) {
+        // Only add list if it has content (todos or groups)
+        if (currentList.todos.length > 0 || (currentList.groups && currentList.groups.length > 0)) {
+          todoLists.push(currentList);
+        }
       }
 
       // Start new list
       currentList = {
-        name: headerMatch[1].trim(),
+        name: h1Match[1].trim(),
+        todos: [],
+        groups: []
+      };
+      currentGroup = null; // Reset group when starting a new list
+      continue;
+    }
+
+    // Check for level 2 header (## Header) - creates a new todo group
+    const h2Match = trimmedLine.match(/^##\s+(.+)$/);
+    if (h2Match) {
+      // If no current list exists, create a default one
+      if (!currentList) {
+        currentList = {
+          name: 'Tasks',
+          todos: [],
+          groups: []
+        };
+      }
+
+      // Ensure groups array exists
+      if (!currentList.groups) {
+        currentList.groups = [];
+      }
+
+      // Start new group
+      currentGroup = {
+        name: h2Match[1].trim(),
         todos: []
       };
+      currentList.groups.push(currentGroup);
       continue;
     }
 
@@ -51,19 +90,29 @@ export function parseMarkdownToTodos(markdown: string): TodoList[] {
       if (!currentList) {
         currentList = {
           name: 'Tasks',
-          todos: []
+          todos: [],
+          groups: []
         };
       }
 
-      currentList.todos.push({
-        content: todoContent
-      });
+      // Add todo to current group if it exists, otherwise to the list
+      if (currentGroup) {
+        currentGroup.todos.push({
+          content: todoContent
+        });
+      } else {
+        currentList.todos.push({
+          content: todoContent
+        });
+      }
     }
   }
 
   // Add the last list if it exists
-  if (currentList && currentList.todos.length > 0) {
-    todoLists.push(currentList);
+  if (currentList) {
+    if (currentList.todos.length > 0 || (currentList.groups && currentList.groups.length > 0)) {
+      todoLists.push(currentList);
+    }
   }
 
   return todoLists;
@@ -72,13 +121,15 @@ export function parseMarkdownToTodos(markdown: string): TodoList[] {
 /**
  * Example markdown format:
  *
- * # Design Phase
+ * # Project Tasks
+ * ## Design Phase
  * - Create wireframes
- * - Design mockups
- * - Get client approval
+ * - Review mockups
+ * ## Development Phase
+ * - Set up environment
+ * - Implement auth
+ * - Deploy
  *
- * # Development Phase
- * - Set up project structure
- * - Implement authentication
- * - Build main features
+ * # Another List
+ * - Task without group
  */
