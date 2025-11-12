@@ -142,13 +142,15 @@ export class BasecampClient {
     todolistId: number,
     name: string
   ): Promise<TodoGroup> {
-    return this.request<TodoGroup>(
+    const response = await this.request<any>(
       `/buckets/${bucketId}/todolists/${todolistId}/groups.json`,
       {
         method: 'POST',
         body: JSON.stringify({ name }),
       }
     );
+    console.log('Group creation response:', JSON.stringify(response, null, 2));
+    return response;
   }
 
   async createTodo(

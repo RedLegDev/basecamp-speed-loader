@@ -52,10 +52,12 @@ export async function POST(request: NextRequest) {
             createdList.id,
             group.name
           );
+          console.log(`Created group "${group.name}" with ID: ${createdGroup.id}`);
 
           // Create todos within the group
           const groupTodos = [];
           for (const todo of group.todos) {
+            console.log(`Creating todo "${todo.content}" in group ${createdGroup.id}`);
             const createdTodo = await client.createTodo(
               projectId,
               createdList.id,
