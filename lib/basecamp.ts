@@ -35,6 +35,8 @@ export class BasecampClient {
   private accessToken: string;
   private accountId: string;
   private baseUrl: string;
+  private lastRequestTime: number = 0;
+  private readonly minRequestInterval: number = 250; // 250ms between requests (50 req/10s = 200ms, using 250ms for safety)
 
   constructor(accessToken: string, accountId: string) {
     this.accessToken = accessToken;
@@ -42,10 +44,29 @@ export class BasecampClient {
     this.baseUrl = `https://3.basecampapi.com/${accountId}`;
   }
 
+  /**
+   * Ensures we respect rate limits by waiting if necessary
+   */
+  private async rateLimit(): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    
+    if (timeSinceLastRequest < this.minRequestInterval) {
+      const waitTime = this.minRequestInterval - timeSinceLastRequest;
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+    
+    this.lastRequestTime = Date.now();
+  }
+
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    retryCount: number = 0
   ): Promise<T> {
+    // Rate limit: ensure minimum time between requests
+    await this.rateLimit();
+
     const url = `${this.baseUrl}${endpoint}`;
     const headers = {
       'Authorization': `Bearer ${this.accessToken}`,
@@ -58,6 +79,22 @@ export class BasecampClient {
       ...options,
       headers,
     });
+
+    // Handle rate limiting (429 Too Many Requests)
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After');
+      const waitTime = retryAfter 
+        ? parseInt(retryAfter, 10) * 1000 // Convert seconds to milliseconds
+        : Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff, max 10s
+      
+      if (retryCount < 5) { // Max 5 retries
+        console.log(`Rate limited. Waiting ${waitTime}ms before retry ${retryCount + 1}/5`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        return this.request<T>(endpoint, options, retryCount + 1);
+      } else {
+        throw new Error('Rate limit exceeded. Too many retries.');
+      }
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
