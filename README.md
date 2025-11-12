@@ -69,12 +69,13 @@ Choose the Basecamp project where you want to create the todo lists.
 Write your project breakdown in markdown format:
 
 ```markdown
-# Design Phase
+# Project Tasks
+## Design Phase
 - Create wireframes
 - Design mockups
 - Get client approval
 
-# Development Phase
+## Development Phase
 - Set up project structure
 - Implement authentication
 - Build main features
@@ -87,23 +88,25 @@ Write your project breakdown in markdown format:
 ```
 
 **Format Rules:**
-- Headers (`#`, `##`, etc.) become todo list names
-- Bullet points (`-` or `*`) become individual todos
-- Each header starts a new todo list
+- `#` headers create todo lists
+- `##` headers create task groups (nested within the current list)
+- Bullet points (`-` or `*`) become todos in the current group or list
 
 ### 4. Create Todo Lists
 
 Click "Create Todo Lists" to send your breakdown to Basecamp. The app will:
-1. Create a todo list for each header
-2. Add all bullet points as todos under their respective lists
-3. Show a success message when complete
+1. Create a todo list for each `#` header
+2. Create task groups for each `##` header within lists
+3. Add all bullet points as todos under their respective lists or groups
+4. Show a success message when complete
 
 ## Markdown Format
 
 The parser converts markdown to Basecamp todo lists following these rules:
 
-- **Headers** (any level: `#`, `##`, `###`, etc.) create new todo lists
-- **List items** (`-` or `*`) create todos in the most recent list
+- **Level 1 headers** (`#`) create new todo lists
+- **Level 2 headers** (`##`) create task groups within the current todo list
+- **List items** (`-` or `*`) create todos in the current group (if active) or directly in the list
 - Empty lines are ignored
 - If there are list items before any header, they're grouped under a "Tasks" list
 
@@ -111,22 +114,29 @@ The parser converts markdown to Basecamp todo lists following these rules:
 
 Input markdown:
 ```markdown
-# Frontend Work
+# Project Tasks
+## Frontend Work
 - Design homepage
 - Implement navigation
 
-# Backend Work
+## Backend Work
 - Set up API endpoints
 - Add authentication
+
+# Another List
+- Standalone task
 ```
 
 Creates:
-- Todo List: "Frontend Work"
-  - Todo: "Design homepage"
-  - Todo: "Implement navigation"
-- Todo List: "Backend Work"
-  - Todo: "Set up API endpoints"
-  - Todo: "Add authentication"
+- Todo List: "Project Tasks"
+  - Group: "Frontend Work"
+    - Todo: "Design homepage"
+    - Todo: "Implement navigation"
+  - Group: "Backend Work"
+    - Todo: "Set up API endpoints"
+    - Todo: "Add authentication"
+- Todo List: "Another List"
+  - Todo: "Standalone task"
 
 ## API Endpoints
 
