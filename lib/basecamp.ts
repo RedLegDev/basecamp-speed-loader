@@ -156,16 +156,12 @@ export class BasecampClient {
   async createTodo(
     bucketId: number,
     todolistId: number,
-    content: string,
-    groupId?: number
+    content: string
   ): Promise<Todo> {
-    const body: { content: string; group_id?: number } = { content };
-    if (groupId) {
-      body.group_id = groupId;
-    }
+    const body = { content };
 
     const requestBody = JSON.stringify(body);
-    console.log(`Creating todo in list ${todolistId}${groupId ? ` with group ${groupId}` : ''}:`, requestBody);
+    console.log(`Creating todo in list ${todolistId}:`, requestBody);
 
     return this.request<Todo>(
       `/buckets/${bucketId}/todolists/${todolistId}/todos.json`,

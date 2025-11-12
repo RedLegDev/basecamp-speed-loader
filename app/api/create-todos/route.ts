@@ -54,15 +54,15 @@ export async function POST(request: NextRequest) {
           );
           console.log(`Created group "${group.name}" with ID: ${createdGroup.id}`);
 
-          // Create todos within the group
+          // Create todos within the group (nested todolist)
+          // The "group" is actually a nested todolist, so we create todos directly in it
           const groupTodos = [];
           for (const todo of group.todos) {
-            console.log(`Creating todo "${todo.content}" in group ${createdGroup.id}`);
+            console.log(`Creating todo "${todo.content}" in nested todolist/group ${createdGroup.id}`);
             const createdTodo = await client.createTodo(
               projectId,
-              createdList.id,
-              todo.content,
-              createdGroup.id
+              createdGroup.id, // Create todos in the nested todolist, not the parent
+              todo.content
             );
             groupTodos.push(createdTodo);
           }
