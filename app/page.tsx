@@ -208,7 +208,7 @@ function HomeContent() {
                   Project Breakdown (Markdown)
                 </label>
                 <div className="mb-2 text-sm text-gray-500">
-                  Use headers for todo list names and bullet points for todos:
+                  Use # for todo lists, ## for task groups, and - for todos:
                 </div>
                 <textarea
                   id="markdown"
@@ -220,7 +220,9 @@ function HomeContent() {
                   required
                 />
                 <div className="mt-2 text-xs text-gray-500">
-                  Tip: Use # for headers (todo lists) and - for items (todos)
+                  <p>• Use <code className="bg-gray-100 px-1 rounded">#</code> for todo lists</p>
+                  <p>• Use <code className="bg-gray-100 px-1 rounded">##</code> for task groups (within lists)</p>
+                  <p>• Use <code className="bg-gray-100 px-1 rounded">-</code> or <code className="bg-gray-100 px-1 rounded">*</code> for todo items</p>
                 </div>
               </div>
 
@@ -232,13 +234,6 @@ function HomeContent() {
                 >
                   {loading ? 'Creating...' : 'Create Todo Lists'}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setMarkdown(EXAMPLE_MARKDOWN)}
-                  className="px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Load Example
-                </button>
               </div>
             </form>
           )}
@@ -246,8 +241,9 @@ function HomeContent() {
 
         <div className="mt-8 text-center text-sm text-gray-500">
           <p>
-            Need help? Make sure your markdown uses headers (#) for todo list
-            names and bullet points (-) for individual todos.
+            Need help? Use <code className="bg-gray-100 px-1 rounded">#</code> for todo lists,{' '}
+            <code className="bg-gray-100 px-1 rounded">##</code> for task groups, and{' '}
+            <code className="bg-gray-100 px-1 rounded">-</code> for todo items.
           </p>
         </div>
       </div>

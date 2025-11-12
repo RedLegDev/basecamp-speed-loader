@@ -162,11 +162,14 @@ export class BasecampClient {
       body.group_id = groupId;
     }
 
+    const requestBody = JSON.stringify(body);
+    console.log(`Creating todo in list ${todolistId}${groupId ? ` with group ${groupId}` : ''}:`, requestBody);
+
     return this.request<Todo>(
       `/buckets/${bucketId}/todolists/${todolistId}/todos.json`,
       {
         method: 'POST',
-        body: JSON.stringify(body),
+        body: requestBody,
       }
     );
   }
