@@ -145,7 +145,7 @@ function HomeContent() {
       const totalLists = results.length;
       const totalGroups = results.reduce((sum: number, r) => sum + (r.groups?.length || 0), 0);
       const totalTodos = results.reduce((sum: number, r) => {
-        const groupTodos = r.groups?.reduce((gSum: number, g) => gSum + g.todos.length, 0) || 0;
+        const groupTodos = r.groups?.reduce((gSum: number, g: { todos: any[] }) => gSum + g.todos.length, 0) || 0;
         return sum + r.todos.length + groupTodos;
       }, 0);
 
