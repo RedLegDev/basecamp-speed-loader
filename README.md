@@ -9,7 +9,7 @@ A simple Next.js application to quickly load project breakdowns into Basecamp 3 
 - Select any Basecamp project
 - Batch create todo lists with todos
 - No database required - stateless operation
-
+ 
 ## Setup
 
 ### 1. Create a Basecamp OAuth Application
