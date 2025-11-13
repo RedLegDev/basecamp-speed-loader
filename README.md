@@ -2,6 +2,11 @@
 
 A simple Next.js application to quickly load project breakdowns into Basecamp 3 using markdown format.
 
+## 🚀 Production Deployment
+
+**Fully functional and ready to use!** A configured version is deployed and available at:
+**https://basecamp-speed-loader.redleg.dev**
+
 ## Features
 
 - OAuth 2.0 integration with Basecamp 3
