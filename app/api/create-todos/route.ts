@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BasecampClient } from '@/lib/basecamp';
-import { parseMarkdownToTodos } from '@/lib/markdown-parser';
+import { TodoList } from '@/lib/markdown-parser';
 
 export const runtime = 'edge';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { accessToken, accountId, projectId, markdown } = body;
+    const { accessToken, accountId, projectId, todoList } = body;
 
-    if (!accessToken || !accountId || !projectId || !markdown) {
+    if (!accessToken || !accountId || !projectId || !todoList) {
       return NextResponse.json(
         { error: 'Missing required parameters' },
         { status: 400 }
@@ -22,88 +22,69 @@ export async function POST(request: NextRequest) {
     const project = await client.getProject(projectId);
     const todosetId = await client.getTodoSetId(project);
 
-    // Parse markdown into todo lists
-    const todoLists = parseMarkdownToTodos(markdown);
+    // Create the todo list
+    const createdList = await client.createTodoList(
+      projectId,
+      todosetId,
+      todoList.name,
+      todoList.description
+    );
 
-    if (todoLists.length === 0) {
-      return NextResponse.json(
-        { error: 'No todo lists found in markdown' },
-        { status: 400 }
-      );
-    }
+    const createdGroups = [];
 
-    // Create each todo list, its groups, and todos
-    const results = [];
-    for (const list of todoLists) {
-      // Create the todo list
-      const createdList = await client.createTodoList(
-        projectId,
-        todosetId,
-        list.name,
-        list.description
-      );
-
-      const createdGroups = [];
-
-      // Create groups and their todos
-      if (list.groups && list.groups.length > 0) {
-        for (const group of list.groups) {
-          // Create the group
-          const createdGroup = await client.createTodoGroup(
-            projectId,
-            createdList.id,
-            group.name
-          );
-          console.log(`Created group "${group.name}" with ID: ${createdGroup.id}`);
-
-          // Create todos within the group (nested todolist)
-          // The "group" is actually a nested todolist, so we create todos directly in it
-          const groupTodos = [];
-          for (const todo of group.todos) {
-            console.log(`Creating todo "${todo.content}" in nested todolist/group ${createdGroup.id}`);
-            const createdTodo = await client.createTodo(
-              projectId,
-              createdGroup.id, // Create todos in the nested todolist, not the parent
-              todo.content
-            );
-            groupTodos.push(createdTodo);
-          }
-
-          createdGroups.push({
-            group: createdGroup,
-            todos: groupTodos,
-          });
-        }
-      }
-
-      // Create todos directly in the list (outside of groups)
-      const listTodos = [];
-      for (const todo of list.todos) {
-        const createdTodo = await client.createTodo(
+    // Create groups and their todos
+    if (todoList.groups && todoList.groups.length > 0) {
+      for (const group of todoList.groups) {
+        // Create the group
+        const createdGroup = await client.createTodoGroup(
           projectId,
           createdList.id,
-          todo.content
+          group.name
         );
-        listTodos.push(createdTodo);
-      }
+        console.log(`Created group "${group.name}" with ID: ${createdGroup.id}`);
 
-      results.push({
-        list: createdList,
-        groups: createdGroups,
-        todos: listTodos,
-      });
+        // Create todos within the group (nested todolist)
+        // The "group" is actually a nested todolist, so we create todos directly in it
+        const groupTodos = [];
+        for (const todo of group.todos) {
+          console.log(`Creating todo "${todo.content}" in nested todolist/group ${createdGroup.id}`);
+          const createdTodo = await client.createTodo(
+            projectId,
+            createdGroup.id, // Create todos in the nested todolist, not the parent
+            todo.content
+          );
+          groupTodos.push(createdTodo);
+        }
+
+        createdGroups.push({
+          group: createdGroup,
+          todos: groupTodos,
+        });
+      }
     }
 
-    const totalTodos = results.reduce((sum, r) => {
-      const groupTodos = r.groups?.reduce((gSum, g) => gSum + g.todos.length, 0) || 0;
-      return sum + r.todos.length + groupTodos;
-    }, 0);
-    const totalGroups = results.reduce((sum, r) => sum + (r.groups?.length || 0), 0);
+    // Create todos directly in the list (outside of groups)
+    const listTodos = [];
+    for (const todo of todoList.todos) {
+      const createdTodo = await client.createTodo(
+        projectId,
+        createdList.id,
+        todo.content
+      );
+      listTodos.push(createdTodo);
+    }
+
+    const totalTodos = listTodos.length + createdGroups.reduce((sum, g) => sum + g.todos.length, 0);
+    const totalGroups = createdGroups.length;
 
     return NextResponse.json({
       success: true,
-      message: `Created ${results.length} todo lists with ${totalGroups} groups and ${totalTodos} todos`,
-      results,
+      message: `Created todo list "${todoList.name}" with ${totalGroups} groups and ${totalTodos} todos`,
+      result: {
+        list: createdList,
+        groups: createdGroups,
+        todos: listTodos,
+      },
     });
   } catch (error) {
     console.error('Error creating todos:', error);

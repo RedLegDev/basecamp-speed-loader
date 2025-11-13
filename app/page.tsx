@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { parseMarkdownToTodos } from '@/lib/markdown-parser';
 
 interface Project {
   id: number;
@@ -35,6 +36,7 @@ function HomeContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
+  const [progress, setProgress] = useState<string>('');
 
   useEffect(() => {
     // Check for OAuth callback parameters
@@ -84,6 +86,7 @@ function HomeContent() {
     setLoading(true);
     setError('');
     setSuccess('');
+    setProgress('');
 
     if (!selectedProject) {
       setError('Please select a project');
@@ -92,29 +95,77 @@ function HomeContent() {
     }
 
     try {
-      const response = await fetch('/api/create-todos', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          accessToken,
-          accountId,
-          projectId: selectedProject,
-          markdown,
-        }),
-      });
+      // Parse markdown on the client side
+      const todoLists = parseMarkdownToTodos(markdown);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create todos');
+      if (todoLists.length === 0) {
+        setError('No todo lists found in markdown');
+        setLoading(false);
+        return;
       }
 
-      setSuccess(data.message);
-      setMarkdown('');
+      const results = [];
+      const errors: string[] = [];
+
+      // Process each todo list separately
+      for (let i = 0; i < todoLists.length; i++) {
+        const todoList = todoLists[i];
+        setProgress(`Creating list ${i + 1} of ${todoLists.length}: "${todoList.name}"...`);
+
+        try {
+          const response = await fetch('/api/create-todos', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              accessToken,
+              accountId,
+              projectId: selectedProject,
+              todoList,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || `Failed to create list "${todoList.name}"`);
+          }
+
+          results.push(data.result);
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : `Failed to create list "${todoList.name}"`;
+          errors.push(errorMessage);
+          console.error(`Error creating list "${todoList.name}":`, err);
+          // Continue with remaining lists even if one fails
+        }
+      }
+
+      // Build summary message
+      const totalLists = results.length;
+      const totalGroups = results.reduce((sum, r) => sum + (r.groups?.length || 0), 0);
+      const totalTodos = results.reduce((sum, r) => {
+        const groupTodos = r.groups?.reduce((gSum, g) => gSum + g.todos.length, 0) || 0;
+        return sum + r.todos.length + groupTodos;
+      }, 0);
+
+      if (errors.length > 0) {
+        setError(
+          `Completed with errors: ${errors.length} list(s) failed. ` +
+          `Successfully created ${totalLists} todo list(s) with ${totalGroups} groups and ${totalTodos} todos. ` +
+          `Errors: ${errors.join('; ')}`
+        );
+      } else {
+        setSuccess(
+          `Successfully created ${totalLists} todo list(s) with ${totalGroups} groups and ${totalTodos} todos`
+        );
+        setMarkdown('');
+      }
+
+      setProgress('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create todos');
+      setProgress('');
     } finally {
       setLoading(false);
     }
@@ -143,6 +194,15 @@ function HomeContent() {
         {success && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-green-800">{success}</p>
+          </div>
+        )}
+
+        {progress && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
+              <p className="text-blue-800">{progress}</p>
+            </div>
           </div>
         )}
 
