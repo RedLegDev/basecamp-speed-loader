@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getAuthorizationUrl } from '@/lib/basecamp';
 
+export const runtime = 'edge';
+
 export async function GET() {
   try {
     const authUrl = getAuthorizationUrl();
