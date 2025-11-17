@@ -107,7 +107,25 @@ export class BasecampClient {
   }
 
   async getProjects(): Promise<BasecampProject[]> {
-    return this.request<BasecampProject[]>('/projects.json');
+    const allProjects: BasecampProject[] = [];
+    const pageSize = 50;
+    let page = 1;
+
+    while (true) {
+      const projects = await this.request<BasecampProject[]>(
+        `/projects.json?page=${page}&per_page=${pageSize}`
+      );
+
+      allProjects.push(...projects);
+
+      if (projects.length < pageSize) {
+        break;
+      }
+
+      page += 1;
+    }
+
+    return allProjects;
   }
 
   async getProject(projectId: number): Promise<BasecampProject> {
