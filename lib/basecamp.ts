@@ -128,7 +128,7 @@ export class BasecampClient {
       nextUrl = this.getNextLink(response.headers.get('Link'));
     }
 
-    return allProjects;
+    return allProjects.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   private getNextLink(linkHeader: string | null): string | null {
