@@ -59,15 +59,17 @@ export class BasecampClient {
     this.lastRequestTime = Date.now();
   }
 
-  private async request<T>(
+  private async fetchEndpoint(
     endpoint: string,
     options: RequestInit = {},
     retryCount: number = 0
-  ): Promise<T> {
-    // Rate limit: ensure minimum time between requests
+  ): Promise<Response> {
     await this.rateLimit();
 
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = endpoint.startsWith('http')
+      ? endpoint
+      : `${this.baseUrl}${endpoint}`;
+
     const headers = {
       'Authorization': `Bearer ${this.accessToken}`,
       'User-Agent': 'Basecamp Speed Loader (your-email@example.com)',
@@ -90,7 +92,7 @@ export class BasecampClient {
       if (retryCount < 5) { // Max 5 retries
         console.log(`Rate limited. Waiting ${waitTime}ms before retry ${retryCount + 1}/5`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
-        return this.request<T>(endpoint, options, retryCount + 1);
+        return this.fetchEndpoint(endpoint, options, retryCount + 1);
       } else {
         throw new Error('Rate limit exceeded. Too many retries.');
       }
@@ -103,29 +105,50 @@ export class BasecampClient {
       );
     }
 
+    return response;
+  }
+
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const response = await this.fetchEndpoint(endpoint, options);
     return response.json();
   }
 
   async getProjects(): Promise<BasecampProject[]> {
     const allProjects: BasecampProject[] = [];
-    const pageSize = 50;
-    let page = 1;
+    let nextUrl: string | null = '/projects.json';
 
-    while (true) {
-      const projects = await this.request<BasecampProject[]>(
-        `/projects.json?page=${page}&per_page=${pageSize}`
-      );
-
+    while (nextUrl) {
+      const response = await this.fetchEndpoint(nextUrl);
+      const projects = (await response.json()) as BasecampProject[];
       allProjects.push(...projects);
 
-      if (projects.length < pageSize) {
-        break;
-      }
-
-      page += 1;
+      nextUrl = this.getNextLink(response.headers.get('Link'));
     }
 
     return allProjects;
+  }
+
+  private getNextLink(linkHeader: string | null): string | null {
+    if (!linkHeader) {
+      return null;
+    }
+
+    const links = linkHeader.split(',').map(part => part.trim());
+
+    for (const link of links) {
+      const match = link.match(/<([^>]+)>;\s*rel="([^"]+)"/);
+      if (match && match[2] === 'next') {
+        const nextUrl = match[1];
+        return nextUrl.startsWith(this.baseUrl)
+          ? nextUrl.replace(this.baseUrl, '')
+          : nextUrl;
+      }
+    }
+
+    return null;
   }
 
   async getProject(projectId: number): Promise<BasecampProject> {
