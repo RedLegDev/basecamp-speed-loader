@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(/opt/homebrew/bin/npm run build)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

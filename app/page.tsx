@@ -104,60 +104,167 @@ function HomeContent() {
         return;
       }
 
-      const results = [];
+      // Count total items for progress tracking
+      let totalItems = 0;
+      let completedItems = 0;
+      for (const list of todoLists) {
+        totalItems++; // The list itself
+        totalItems += list.groups?.length || 0; // Groups
+        totalItems += list.todos.length; // Direct todos
+        for (const group of list.groups || []) {
+          totalItems += group.todos.length; // Todos in groups
+        }
+      }
+
+      const updateProgress = (message: string) => {
+        completedItems++;
+        setProgress(`(${completedItems}/${totalItems}) ${message}`);
+      };
+
+      let listsCreated = 0;
+      let groupsCreated = 0;
+      let todosCreated = 0;
       const errors: string[] = [];
 
-      // Process each todo list separately
-      for (let i = 0; i < todoLists.length; i++) {
-        const todoList = todoLists[i];
-        setProgress(`Creating list ${i + 1} of ${todoLists.length}: "${todoList.name}"...`);
+      // Process each todo list
+      for (const todoList of todoLists) {
+        // Create the list
+        updateProgress(`Creating list "${todoList.name}"...`);
 
+        let listResponse;
         try {
-          const response = await fetch('/api/create-todos', {
+          const response = await fetch('/api/create-list', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               accessToken,
               accountId,
               projectId: selectedProject,
-              todoList,
+              name: todoList.name,
+              description: todoList.description,
             }),
           });
 
           const data = await response.json();
-
           if (!response.ok) {
             throw new Error(data.error || `Failed to create list "${todoList.name}"`);
           }
-
-          results.push(data.result);
+          listResponse = data;
+          listsCreated++;
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : `Failed to create list "${todoList.name}"`;
           errors.push(errorMessage);
           console.error(`Error creating list "${todoList.name}":`, err);
-          // Continue with remaining lists even if one fails
+          continue; // Skip to next list if this one failed
+        }
+
+        const listId = listResponse.list.id;
+
+        // Create groups and their todos
+        for (const group of todoList.groups || []) {
+          updateProgress(`Creating group "${group.name}"...`);
+
+          let groupResponse;
+          try {
+            const response = await fetch('/api/create-group', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                accessToken,
+                accountId,
+                projectId: selectedProject,
+                todolistId: listId,
+                name: group.name,
+              }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+              throw new Error(data.error || `Failed to create group "${group.name}"`);
+            }
+            groupResponse = data;
+            groupsCreated++;
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : `Failed to create group "${group.name}"`;
+            errors.push(errorMessage);
+            console.error(`Error creating group "${group.name}":`, err);
+            continue; // Skip to next group if this one failed
+          }
+
+          const groupId = groupResponse.group.id;
+
+          // Create todos in the group
+          for (const todo of group.todos) {
+            updateProgress(`Creating todo "${todo.content.substring(0, 30)}${todo.content.length > 30 ? '...' : ''}"...`);
+
+            try {
+              const response = await fetch('/api/create-todo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  accessToken,
+                  accountId,
+                  projectId: selectedProject,
+                  todolistId: groupId,
+                  content: todo.content,
+                }),
+              });
+
+              const data = await response.json();
+              if (!response.ok) {
+                throw new Error(data.error || `Failed to create todo "${todo.content}"`);
+              }
+              todosCreated++;
+            } catch (err) {
+              const errorMessage = err instanceof Error ? err.message : `Failed to create todo "${todo.content}"`;
+              errors.push(errorMessage);
+              console.error(`Error creating todo:`, err);
+              // Continue with remaining todos
+            }
+          }
+        }
+
+        // Create todos directly in the list (outside of groups)
+        for (const todo of todoList.todos) {
+          updateProgress(`Creating todo "${todo.content.substring(0, 30)}${todo.content.length > 30 ? '...' : ''}"...`);
+
+          try {
+            const response = await fetch('/api/create-todo', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                accessToken,
+                accountId,
+                projectId: selectedProject,
+                todolistId: listId,
+                content: todo.content,
+              }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+              throw new Error(data.error || `Failed to create todo "${todo.content}"`);
+            }
+            todosCreated++;
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : `Failed to create todo "${todo.content}"`;
+            errors.push(errorMessage);
+            console.error(`Error creating todo:`, err);
+            // Continue with remaining todos
+          }
         }
       }
 
       // Build summary message
-      const totalLists = results.length;
-      const totalGroups = results.reduce((sum: number, r) => sum + (r.groups?.length || 0), 0);
-      const totalTodos = results.reduce((sum: number, r) => {
-        const groupTodos = r.groups?.reduce((gSum: number, g: { todos: any[] }) => gSum + g.todos.length, 0) || 0;
-        return sum + r.todos.length + groupTodos;
-      }, 0);
-
       if (errors.length > 0) {
         setError(
-          `Completed with errors: ${errors.length} list(s) failed. ` +
-          `Successfully created ${totalLists} todo list(s) with ${totalGroups} groups and ${totalTodos} todos. ` +
-          `Errors: ${errors.join('; ')}`
+          `Completed with ${errors.length} error(s). ` +
+          `Successfully created ${listsCreated} list(s), ${groupsCreated} group(s), and ${todosCreated} todo(s). ` +
+          `Errors: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? ` (and ${errors.length - 3} more)` : ''}`
         );
       } else {
         setSuccess(
-          `Successfully created ${totalLists} todo list(s) with ${totalGroups} groups and ${totalTodos} todos`
+          `Successfully created ${listsCreated} list(s), ${groupsCreated} group(s), and ${todosCreated} todo(s)`
         );
         setMarkdown('');
       }
