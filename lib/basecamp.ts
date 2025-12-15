@@ -226,12 +226,17 @@ export class BasecampClient {
 
   async getCampfires(projectId: number): Promise<Campfire[]> {
     const allCampfires: Campfire[] = [];
-    let nextUrl: string | null = `/buckets/${projectId}/chats.json`;
+    // Use the general chats endpoint and filter by bucket.id
+    let nextUrl: string | null = '/chats.json';
 
     while (nextUrl) {
       const response = await this.fetchEndpoint(nextUrl);
       const campfires = (await response.json()) as Campfire[];
-      allCampfires.push(...campfires);
+      // Filter campfires to only include those for this project
+      const projectCampfires = campfires.filter(
+        (campfire) => campfire.bucket.id === projectId
+      );
+      allCampfires.push(...projectCampfires);
 
       nextUrl = this.getNextLink(response.headers.get('Link'));
     }
