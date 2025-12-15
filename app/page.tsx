@@ -10,6 +10,12 @@ interface Project {
   description: string;
 }
 
+interface Campfire {
+  id: number;
+  title: string;
+  status: string;
+}
+
 const EXAMPLE_MARKDOWN = `# Design Phase
 - Create wireframes
 - Design mockups
@@ -32,6 +38,8 @@ function HomeContent() {
   const [accountId, setAccountId] = useState<string>('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
+  const [campfires, setCampfires] = useState<Campfire[]>([]);
+  const [selectedCampfire, setSelectedCampfire] = useState<number | null>(null);
   const [markdown, setMarkdown] = useState<string>(EXAMPLE_MARKDOWN);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
@@ -76,6 +84,37 @@ function HomeContent() {
       setLoading(false);
     }
   };
+
+  const fetchCampfires = async (token: string, account: string, projectId: number) => {
+    setError('');
+    setCampfires([]);
+    setSelectedCampfire(null);
+
+    try {
+      const response = await fetch(
+        `/api/campfires?access_token=${encodeURIComponent(token)}&account_id=${encodeURIComponent(account)}&project_id=${projectId}`
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch campfires');
+      }
+
+      const data = await response.json();
+      setCampfires(data.campfires);
+    } catch (err) {
+      // Don't show error for campfires, just log it
+      console.error('Failed to fetch campfires:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedProject && accessToken && accountId) {
+      fetchCampfires(accessToken, accountId, selectedProject);
+    } else {
+      setCampfires([]);
+      setSelectedCampfire(null);
+    }
+  }, [selectedProject, accessToken, accountId]);
 
   const handleConnect = () => {
     window.location.href = '/api/auth/login';
@@ -366,6 +405,30 @@ function HomeContent() {
                   ))}
                 </select>
               </div>
+
+              {selectedProject && campfires.length > 0 && (
+                <div>
+                  <label
+                    htmlFor="campfire"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
+                    Select Campfire (Optional)
+                  </label>
+                  <select
+                    id="campfire"
+                    value={selectedCampfire || ''}
+                    onChange={(e) => setSelectedCampfire(Number(e.target.value) || null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Choose a campfire...</option>
+                    {campfires.map((campfire) => (
+                      <option key={campfire.id} value={campfire.id}>
+                        {campfire.title} ({campfire.id})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label

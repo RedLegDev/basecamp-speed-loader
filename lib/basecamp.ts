@@ -31,6 +31,17 @@ export interface Todo {
   content: string;
 }
 
+export interface Campfire {
+  id: number;
+  title: string;
+  status: string;
+  bucket: {
+    id: number;
+    name: string;
+    type: string;
+  };
+}
+
 export class BasecampClient {
   private accessToken: string;
   private accountId: string;
@@ -211,6 +222,21 @@ export class BasecampClient {
         body: requestBody,
       }
     );
+  }
+
+  async getCampfires(projectId: number): Promise<Campfire[]> {
+    const allCampfires: Campfire[] = [];
+    let nextUrl: string | null = `/buckets/${projectId}/chats.json`;
+
+    while (nextUrl) {
+      const response = await this.fetchEndpoint(nextUrl);
+      const campfires = (await response.json()) as Campfire[];
+      allCampfires.push(...campfires);
+
+      nextUrl = this.getNextLink(response.headers.get('Link'));
+    }
+
+    return allCampfires.sort((a, b) => a.title.localeCompare(b.title));
   }
 }
 
